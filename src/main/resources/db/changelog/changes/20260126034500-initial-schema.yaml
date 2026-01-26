@@ -1,0 +1,193 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-shopify-sessions-table
+      author: buido
+      changes:
+        - createTable:
+            tableName: shopify_sessions
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(255)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: shop
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: state
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_online
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: scope
+                  type: VARCHAR(4000)
+              - column:
+                  name: expires
+                  type: TIMESTAMP
+              - column:
+                  name: access_token
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BIGINT
+              - column:
+                  name: first_name
+                  type: VARCHAR(255)
+              - column:
+                  name: last_name
+                  type: VARCHAR(255)
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+              - column:
+                  name: account_owner
+                  type: BOOLEAN
+              - column:
+                  name: locale
+                  type: VARCHAR(255)
+              - column:
+                  name: collaborator
+                  type: BOOLEAN
+              - column:
+                  name: email_verified
+                  type: BOOLEAN
+              - column:
+                  name: refresh_token
+                  type: VARCHAR(255)
+              - column:
+                  name: refresh_token_expires
+                  type: TIMESTAMP
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+
+  - changeSet:
+      id: 002-create-app-settings-table
+      author: buido
+      changes:
+        - createTable:
+            tableName: app_settings
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: shop
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: discount_feature_enabled
+                  type: BOOLEAN
+
+  - changeSet:
+      id: 003-create-product-reviews-table
+      author: buido
+      changes:
+        - createTable:
+            tableName: product_reviews
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: shop
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: customer_id
+                  type: VARCHAR(255)
+              - column:
+                  name: customer_name
+                  type: NVARCHAR(255)
+              - column:
+                  name: avatar_url
+                  type: VARCHAR(255)
+              - column:
+                  name: comment
+                  type: TEXT
+              - column:
+                  name: rating
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+        - createIndex:
+            tableName: product_reviews
+            indexName: idx_product_reviews_shop
+            columns:
+              - column:
+                  name: shop
+        - createIndex:
+            tableName: product_reviews
+            indexName: idx_product_reviews_product_id
+            columns:
+              - column:
+                  name: product_id
+
+  - changeSet:
+      id: 004-create-review-media-table
+      author: buido
+      changes:
+        - createTable:
+            tableName: review_media
+            columns:
+              - column:
+                  name: id
+                  type: BIGINT
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: review_id
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_review_media_review
+                    references: product_reviews(id)
+              - column:
+                  name: media_url
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: media_type
+                  type: VARCHAR(255)
+              - column:
+                  name: file_size
+                  type: BIGINT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
