@@ -1,3 +1,5 @@
 databaseChangeLog:
   - include:
       file: db/changelog/changes/20260126034500-initial-schema.yaml
+  - include:
+      file: db/changelog/changes/20260127034500_alter_table_product_review.yaml

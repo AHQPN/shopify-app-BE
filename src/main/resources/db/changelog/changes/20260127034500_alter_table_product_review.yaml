@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-alter-table-product-reviews-add-columns
+      author: buido
+      changes:
+        - addColumn:
+            tableName: product_reviews
+            columns:
+              - column:
+                  name: product_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                  defaultValue: "Unknown Product"
+              - column:
+                  name: status
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+                  defaultValueBoolean: true
+              - column:
+                  name: hide_reason
+                  type: VARCHAR(50)
+              - column:
+                  name: reply_to
+                  type: BIGINT

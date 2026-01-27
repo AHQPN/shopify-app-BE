@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -25,10 +26,13 @@ public class FileStorageService {
 
     // Folders must exist manually as per configuration
 
-    public String storeFile(MultipartFile file) {
+    public String storeFile(MultipartFile file, String type) {
         String fileName = StringUtils.cleanPath(file.getOriginalFilename());
         String contentType = file.getContentType();
-        
+        if(type != null){
+            if(!Objects.equals(contentType, type))
+                throw new AppException(ErrorCode.FILE_TYPE_NOT_SUPPORT);
+        }
         String subDir = "others";
         String urlPrefix = "/api/files/others/";
 

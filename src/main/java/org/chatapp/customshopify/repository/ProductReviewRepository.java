@@ -32,4 +32,11 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
 
     @org.springframework.data.jpa.repository.Query("SELECT AVG(r.rating) FROM ProductReview r WHERE r.shop = :shop")
     Double getAverageRatingByShop(@org.springframework.data.repository.query.Param("shop") String shop);
+
+    // Stats by Product
+    Long countByShopAndProductId(String shop, String productId);
+    Long countByShopAndProductIdAndRating(String shop, String productId, Integer rating);
+
+    @org.springframework.data.jpa.repository.Query("SELECT AVG(r.rating) FROM ProductReview r WHERE r.shop = :shop AND r.productId = :productId")
+    Double getAverageRatingByShopAndProductId(@org.springframework.data.repository.query.Param("shop") String shop, @org.springframework.data.repository.query.Param("productId") String productId);
 }

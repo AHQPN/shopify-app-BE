@@ -32,14 +32,36 @@ public class FileController {
 
     private final FileStorageService fileStorageService;
 
+    private static final long MAX_FILE_SIZE = 30 * 1024 * 1024; // 30MB
+    private static final int MAX_FILE_COUNT = 5;
+    private static final List<String> ALLOWED_CONTENT_TYPES = Arrays.asList(
+            "image/jpeg", "image/png", "image/gif", "image/webp", "image/jpg"
+    );
+
     @PostMapping("/upload")
     public ResponseEntity<ApiResponse<List<String>>> uploadFiles(@RequestParam("files") MultipartFile[] files) {
+        if (files.length > MAX_FILE_COUNT) {
+            throw new AppException(ErrorCode.FILE_LIMIT_EXCEEDED);
+        }
+
+        long totalSize = 0;
+        for (MultipartFile file : files) {
+            totalSize += file.getSize();
+            if (!ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
+                throw new AppException(ErrorCode.FILE_TYPE_NOT_SUPPORT);
+            }
+        }
+
+        if (totalSize > MAX_FILE_SIZE) {
+            throw new AppException(ErrorCode.FILE_SIZE_EXCEEDED);
+        }
+
         List<String> fileUrls = new ArrayList<>();
 
         for (MultipartFile file : files) {
             if (file.isEmpty()) continue;
             
-            String url = fileStorageService.storeFile(file);
+            String url = fileStorageService.storeFile(file,null);
             fileUrls.add(url);
         }
         

@@ -8,9 +8,11 @@ public class CreateReviewRequest {
     private String productId;
     private String customerId; // Optional from FE
     private String customerName;
+    private String productName;
     private String avatarUrl;
     private String comment;
     private Integer rating;
+    private Long replyTo;
     private List<MediaItem> media;
 
     @Data

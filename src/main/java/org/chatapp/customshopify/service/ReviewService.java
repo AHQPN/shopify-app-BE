@@ -27,18 +27,23 @@ public class ReviewService {
     public ProductReview createReview(String shop, CreateReviewRequest request) {
         log.info("Creating review for product {} in shop {}", request.getProductId(), shop);
 
-        if (request.getRating() == null || request.getRating() < 1 || request.getRating() > 5) {
-            throw new AppException(ErrorCode.INVALID_REQUEST);
+        // Only validate rating if it is not a reply
+        if (request.getReplyTo() == null) {
+            if (request.getRating() == null || request.getRating() < 1 || request.getRating() > 5) {
+                throw new AppException(ErrorCode.INVALID_REQUEST);
+            }
         }
 
         ProductReview review = ProductReview.builder()
                 .shop(shop)
                 .productId(request.getProductId())
+                .productName(request.getProductName())
                 .customerId(request.getCustomerId())
                 .customerName(request.getCustomerName())
                 .avatarUrl(request.getAvatarUrl())
                 .comment(request.getComment())
                 .rating(request.getRating())
+                .replyTo(request.getReplyTo())
                 .build();
 
         List<ReviewMedia> mediaList = new ArrayList<>();
@@ -71,7 +76,20 @@ public class ReviewService {
         }
     }
 
-    public ReviewStats getReviewStats(String shop) {
+    public ReviewStats getReviewStats(String shop, String productId) {
+        if (productId != null && !productId.isEmpty()) {
+            Double avg = reviewRepository.getAverageRatingByShopAndProductId(shop, productId);
+            return ReviewStats.builder()
+                    .totalReviews(reviewRepository.countByShopAndProductId(shop, productId))
+                    .averageRating(avg != null ? Math.round(avg * 10.0) / 10.0 : 0.0)
+                    .oneStar(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 1))
+                    .twoStars(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 2))
+                    .threeStars(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 3))
+                    .fourStars(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 4))
+                    .fiveStars(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 5))
+                    .build();
+        }
+
         Double avg = reviewRepository.getAverageRatingByShop(shop);
         
         return ReviewStats.builder()

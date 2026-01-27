@@ -53,10 +53,13 @@ public class ReviewController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<ApiResponse<ReviewService.ReviewStats>> getStats(HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ApiResponse<ReviewService.ReviewStats>> getStats(
+            HttpServletRequest httpServletRequest,
+            @RequestParam(required = false) String productId
+    ) {
         String shop = getShop(httpServletRequest);
         return ResponseEntity.ok(ApiResponse.<ReviewService.ReviewStats>builder()
-                .data(reviewService.getReviewStats(shop))
+                .data(reviewService.getReviewStats(shop, productId))
                 .build());
     }
 

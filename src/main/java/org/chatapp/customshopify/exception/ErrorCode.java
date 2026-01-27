@@ -25,7 +25,10 @@ public enum ErrorCode {
         UNSUPPORT_TOKEN(HttpStatus.BAD_REQUEST, 1006, "JWT token is unsupported"),
         JWT_CLAIMS_EMPTY(HttpStatus.BAD_REQUEST, 1007, "JWT claims string is empty"),
         INVALID_HMAC(HttpStatus.UNAUTHORIZED, 1008, "Invalid HMAC signature"),
-        SHOPIFY_API_ERROR(HttpStatus.BAD_GATEWAY, 1009, "Error calling Shopify API");
+        SHOPIFY_API_ERROR(HttpStatus.BAD_GATEWAY, 1009, "Error calling Shopify API"),
+        FILE_TYPE_NOT_SUPPORT(HttpStatus.BAD_REQUEST, 1010, "File type not supported"),
+        FILE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, 1011, "File limit exceeded"),
+        FILE_SIZE_EXCEEDED(HttpStatus.BAD_REQUEST, 1012, "File size exceeded");
 
         private final HttpStatus httpStatus;
         private final int code;

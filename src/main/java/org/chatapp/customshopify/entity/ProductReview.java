@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.chatapp.customshopify.enums.HideReason;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -31,6 +32,9 @@ public class ProductReview {
     @Column(name = "product_id", nullable = false)
     private String productId;
 
+    @Column(name = "product_name" , nullable = false)
+    private String productName;
+
     @Column(name = "customer_id")
     private String customerId;
 
@@ -43,8 +47,16 @@ public class ProductReview {
     @Column(columnDefinition = "TEXT")
     private String comment;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Integer rating; // 1 to 5
+
+    @Column(nullable = false)
+    private Boolean status;
+
+    @Enumerated(EnumType.STRING)
+    private HideReason  hideReason;
+
+    private Long replyTo;
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReviewMedia> media;

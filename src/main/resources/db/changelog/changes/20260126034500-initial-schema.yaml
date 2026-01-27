@@ -2,6 +2,11 @@ databaseChangeLog:
   - changeSet:
       id: 001-create-shopify-sessions-table
       author: buido
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: shopify_sessions
       changes:
         - createTable:
             tableName: shopify_sessions
@@ -78,6 +83,11 @@ databaseChangeLog:
   - changeSet:
       id: 002-create-app-settings-table
       author: buido
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: app_settings
       changes:
         - createTable:
             tableName: app_settings
@@ -102,6 +112,11 @@ databaseChangeLog:
   - changeSet:
       id: 003-create-product-reviews-table
       author: buido
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: product_reviews
       changes:
         - createTable:
             tableName: product_reviews
@@ -139,7 +154,7 @@ databaseChangeLog:
                   name: rating
                   type: INT
                   constraints:
-                    nullable: false
+                    nullable: true
               - column:
                   name: created_at
                   type: TIMESTAMP
@@ -159,6 +174,11 @@ databaseChangeLog:
   - changeSet:
       id: 004-create-review-media-table
       author: buido
+      preConditions:
+        - onFail: MARK_RAN
+        - not:
+            - tableExists:
+                tableName: review_media
       changes:
         - createTable:
             tableName: review_media
