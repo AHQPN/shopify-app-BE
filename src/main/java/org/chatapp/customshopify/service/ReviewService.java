@@ -3,6 +3,7 @@ package org.chatapp.customshopify.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.chatapp.customshopify.dto.request.CreateReviewRequest;
+import org.chatapp.customshopify.dto.request.UpdateReviewStatusRequest;
 import org.chatapp.customshopify.entity.ProductReview;
 import org.chatapp.customshopify.entity.ReviewMedia;
 import org.chatapp.customshopify.exception.AppException;
@@ -27,7 +28,6 @@ public class ReviewService {
     public ProductReview createReview(String shop, CreateReviewRequest request) {
         log.info("Creating review for product {} in shop {}", request.getProductId(), shop);
 
-        // Only validate rating if it is not a reply
         if (request.getReplyTo() == null) {
             if (request.getRating() == null || request.getRating() < 1 || request.getRating() > 5) {
                 throw new AppException(ErrorCode.INVALID_REQUEST);
@@ -58,51 +58,38 @@ public class ReviewService {
             }
         }
         review.setMedia(mediaList);
-
+        review.setStatus(false); // Default to unpublished
         return reviewRepository.save(review);
     }
 
-    public Page<ProductReview> getReviews(String shop, String productId, Integer rating, Pageable pageable) {
-        if (productId != null && !productId.isEmpty()) {
-            if (rating != null) {
-                return reviewRepository.findByShopAndProductIdAndRating(shop, productId, rating, pageable);
-            }
-            return reviewRepository.findByShopAndProductId(shop, productId, pageable);
-        } else {
-            if (rating != null) {
-                return reviewRepository.findByShopAndRating(shop, rating, pageable);
-            }
-            return reviewRepository.findByShop(shop, pageable);
-        }
+    public Page<ProductReview> getReviews(String shop, String productId, Integer rating, Boolean status,
+            Pageable pageable) {
+        return reviewRepository.findFiltered(shop, productId, rating, status, pageable);
     }
 
-    public ReviewStats getReviewStats(String shop, String productId) {
-        if (productId != null && !productId.isEmpty()) {
-            Double avg = reviewRepository.getAverageRatingByShopAndProductId(shop, productId);
-            return ReviewStats.builder()
-                    .totalReviews(reviewRepository.countByShopAndProductId(shop, productId))
-                    .averageRating(avg != null ? Math.round(avg * 10.0) / 10.0 : 0.0)
-                    .oneStar(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 1))
-                    .twoStars(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 2))
-                    .threeStars(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 3))
-                    .fourStars(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 4))
-                    .fiveStars(reviewRepository.countByShopAndProductIdAndRating(shop, productId, 5))
-                    .build();
-        }
+    public ReviewStats getReviewStats(String shop, String productId, Boolean status) {
+        Double avg = reviewRepository.getAverageRatingFiltered(shop, productId, status);
 
-        Double avg = reviewRepository.getAverageRatingByShop(shop);
-        
         return ReviewStats.builder()
-                .totalReviews(reviewRepository.countByShop(shop))
+                .totalReviews(reviewRepository.countFiltered(shop, productId, status))
                 .averageRating(avg != null ? Math.round(avg * 10.0) / 10.0 : 0.0)
-                .oneStar(reviewRepository.countByShopAndRating(shop, 1))
-                .twoStars(reviewRepository.countByShopAndRating(shop, 2))
-                .threeStars(reviewRepository.countByShopAndRating(shop, 3))
-                .fourStars(reviewRepository.countByShopAndRating(shop, 4))
-                .fiveStars(reviewRepository.countByShopAndRating(shop, 5))
+                .oneStar(reviewRepository.countFilteredWithRating(shop, productId, 1, status))
+                .twoStars(reviewRepository.countFilteredWithRating(shop, productId, 2, status))
+                .threeStars(reviewRepository.countFilteredWithRating(shop, productId, 3, status))
+                .fourStars(reviewRepository.countFilteredWithRating(shop, productId, 4, status))
+                .fiveStars(reviewRepository.countFilteredWithRating(shop, productId, 5, status))
                 .build();
     }
-    
+
+    @Transactional
+    public void updateReviewStatus(UpdateReviewStatusRequest request) {
+        ProductReview productReview = reviewRepository.getProductReviewById(request.getId())
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
+        productReview.setStatus(request.getStatus());
+        productReview.setHideReason(request.getHideReason());
+        reviewRepository.save(productReview);
+    }
+
     @lombok.Data
     @lombok.Builder
     public static class ReviewStats {
