@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0
+      author: admin
+      changes:
+        - addColumn:
+            tableName: product_reviews
+            columns:
+              - column:
+                  name: reply_num
+                  type: Integer
+              - column:
+                  name: is_read
+                  type: boolean
+              - column:
+                  name: unread_reply_count
+                  type: Integer
+                  defaultValueNumeric: 0
+        - modifyDataType:
+            tableName: product_reviews
+            columnName: status
+            newDataType: varchar(10)

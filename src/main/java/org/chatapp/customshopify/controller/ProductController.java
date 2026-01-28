@@ -1,5 +1,6 @@
 package org.chatapp.customshopify.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.chatapp.customshopify.dto.model.ProductDTO;
 import org.chatapp.customshopify.dto.response.ApiResponse;
 import org.chatapp.customshopify.service.ProductService;
@@ -21,7 +22,7 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ProductDTO>>> getProducts(jakarta.servlet.http.HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<List<ProductDTO>>> getProducts(HttpServletRequest request) {
         String shop = (String) request.getAttribute("shop");
         String accessToken = (String) request.getAttribute("accessToken");
 

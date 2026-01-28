@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.chatapp.customshopify.dto.request.CreateReviewRequest;
 import org.chatapp.customshopify.dto.request.UpdateReviewStatusRequest;
 import org.chatapp.customshopify.dto.response.ApiResponse;
+import org.chatapp.customshopify.dto.response.ReviewStatsResponse;
 import org.chatapp.customshopify.entity.ProductReview;
 import org.chatapp.customshopify.exception.AppException;
 import org.chatapp.customshopify.exception.ErrorCode;
@@ -46,8 +47,11 @@ public class ReviewController {
             @RequestParam(required = false) String productId,
             @RequestParam(required = false) Integer rating,
             @RequestParam(required = false) Boolean status,
+            @RequestParam(required = false) Boolean isRead,
+            @RequestParam(required = false) String productName,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+
         String shop = getShop(httpServletRequest);
 
         // Determine if we should enforce Published status
@@ -59,7 +63,8 @@ public class ReviewController {
         }
 
         Sort sort = Sort.by("createdAt").descending();
-        Page<ProductReview> reviews = reviewService.getReviews(shop, productId, rating, finalStatus,
+        Page<ProductReview> reviews = reviewService.getReviews(shop, productId, rating, finalStatus, isRead,
+                productName,
                 PageRequest.of(page, size, sort));
 
         return ResponseEntity.ok(ApiResponse.<Page<ProductReview>>builder()
@@ -68,7 +73,7 @@ public class ReviewController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<ApiResponse<ReviewService.ReviewStats>> getStats(
+    public ResponseEntity<ApiResponse<ReviewStatsResponse>> getStats(
             HttpServletRequest httpServletRequest,
             @RequestParam(required = false) String productId,
             @RequestParam(required = false) Boolean status) {
@@ -80,7 +85,7 @@ public class ReviewController {
             finalStatus = true; // Storefront stats only for published
         }
 
-        return ResponseEntity.ok(ApiResponse.<ReviewService.ReviewStats>builder()
+        return ResponseEntity.ok(ApiResponse.<ReviewStatsResponse>builder()
                 .data(reviewService.getReviewStats(shop, productId, finalStatus))
                 .build());
     }
@@ -103,12 +108,24 @@ public class ReviewController {
         reviewService.updateReviewStatus(request);
         return ResponseEntity.ok().body(ApiResponse.<Void>builder().message("Update successfully").build());
     }
+    @PutMapping("/read-reply")
+    public ResponseEntity<ApiResponse> updateUnreadReplyCount(@RequestBody List<Long> reviews) {
+        reviewService.updateUnreadReplyCount(reviews);
+        return ResponseEntity.ok().body(ApiResponse.<Void>builder().message("Update successfully").build());
+    }
+    @GetMapping("/{id}/replies")
+    public ResponseEntity<?> getRepliesByReview(@PathVariable Long id, @RequestParam(required = false) Boolean isRead) {
+        List<ProductReview> reviews = reviewService.getRepliesByReview(id, isRead);
+        return ResponseEntity.ok().body(ApiResponse.builder().data(reviews).build());
+    }
 
-    // @GetMapping
-    // public ResponseEntity<ApiResponse> getDetailReview()
-    // {
-    //
-    // }
+    @PutMapping("/read")
+    public ResponseEntity<?> setReadReview(@RequestBody List<Long> reviews) {
+        reviewService.setReadReview(reviews);
+        return ResponseEntity.ok().body(ApiResponse.builder().message("Set read successfully"));
+    }
+
+
 
     private String getShop(HttpServletRequest request) {
         String shop = (String) request.getAttribute("shop");

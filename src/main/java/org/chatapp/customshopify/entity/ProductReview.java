@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.chatapp.customshopify.enums.HideReason;
+import org.chatapp.customshopify.enums.ReviewStatus;
 import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
@@ -13,8 +14,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "product_reviews", indexes = {
-    @Index(name = "idx_product_reviews_shop", columnList = "shop"),
-    @Index(name = "idx_product_reviews_product_id", columnList = "product_id")
+        @Index(name = "idx_product_reviews_shop", columnList = "shop"),
+        @Index(name = "idx_product_reviews_product_id", columnList = "product_id")
 })
 @Data
 @Builder
@@ -32,7 +33,7 @@ public class ProductReview {
     @Column(name = "product_id", nullable = false)
     private String productId;
 
-    @Column(name = "product_name" , nullable = false)
+    @Column(name = "product_name", nullable = false)
     private String productName;
 
     @Column(name = "customer_id")
@@ -51,11 +52,13 @@ public class ProductReview {
     private Integer rating; // 1 to 5
 
     @Column(nullable = false)
-    private Boolean status;
+    @Enumerated(EnumType.STRING)
+    private ReviewStatus status;
 
     @Enumerated(EnumType.STRING)
-    private HideReason  hideReason;
+    private HideReason hideReason;
 
+    @Column(name = "reply_to")
     private Long replyTo;
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -64,4 +67,14 @@ public class ProductReview {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    @Column(name = "reply_num")
+    private Integer replyNum;
+
+    @Column(name = "is_read")
+    private Boolean isRead;
+
+    @Column(name = "unread_reply_count")
+    private Integer unreadReplyCount;
+
 }

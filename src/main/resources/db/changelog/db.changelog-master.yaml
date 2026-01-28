@@ -5,3 +5,5 @@ databaseChangeLog:
       file: db/changelog/changes/20260127034500_alter_table_product_review.yaml
   - include:
       file: db/changelog/changes/20260127150000-add-auto-publish-to-app-settings.yaml
+  - include:
+      file: db/changelog/changes/20260128092900_alter-table_product_review.yaml
