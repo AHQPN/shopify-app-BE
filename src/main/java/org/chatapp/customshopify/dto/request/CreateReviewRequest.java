@@ -13,6 +13,7 @@ public class CreateReviewRequest {
     private String comment;
     private Integer rating;
     private Long replyTo;
+    private Boolean isAnonymous;
     private List<MediaItem> media;
 
     @Data

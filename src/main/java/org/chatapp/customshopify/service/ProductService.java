@@ -2,14 +2,12 @@ package org.chatapp.customshopify.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.chatapp.customshopify.client.ShopifyGraphQLClient;
 import org.chatapp.customshopify.config.ShopifyConfig;
 import org.chatapp.customshopify.entity.ShopifySession;
 import org.chatapp.customshopify.repository.AppSettingsRepository;
 import org.chatapp.customshopify.repository.ShopifySessionRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,7 +15,6 @@ import java.util.*;
 
 import org.chatapp.customshopify.dto.model.ProductDTO;
 import org.chatapp.customshopify.dto.model.VariantDTO;
-import org.chatapp.customshopify.dto.request.GraphQLRequest;
 import org.chatapp.customshopify.dto.request.MetafieldUpdateInput;
 import org.chatapp.customshopify.dto.response.BatchCalculationResult;
 import org.chatapp.customshopify.dto.response.ShopifyGraphQLResponses;
@@ -30,9 +27,7 @@ public class ProductService {
     private final AppSettingsRepository settingsRepository;
     private final ShopifySessionRepository sessionRepository;
     private final ShopifyConfig shopifyConfig;
-    private final RestTemplate restTemplate = new RestTemplate();
-    @Value("${shopify.api.version}")
-    private String apiVersion;
+    private final ShopifyGraphQLClient graphQLClient;
 
     // Clear all discounts (set metafield to 0) for a shop
     public BatchCalculationResult clearAllDiscounts(String shop, String accessToken) {
@@ -164,7 +159,6 @@ public class ProductService {
     }
 
     private boolean sendBatchMetafieldUpdate(String shop, String accessToken, List<MetafieldUpdateInput> updates) {
-        String url = String.format(shopifyConfig.getGraphqlUrl(), shop, apiVersion);
         if (updates.isEmpty())
             return true;
 
@@ -196,17 +190,9 @@ public class ProductService {
                 }
                 """, inputs.toString());
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Shopify-Access-Token", accessToken);
-
-        GraphQLRequest requestBody = new GraphQLRequest(mutation);
-        HttpEntity<GraphQLRequest> entity = new HttpEntity<>(requestBody, headers);
-
         try {
-            ResponseEntity<ShopifyGraphQLResponses.MetafieldsSetRoot> response = restTemplate.exchange(url,
-                    HttpMethod.POST, entity, ShopifyGraphQLResponses.MetafieldsSetRoot.class);
-            ShopifyGraphQLResponses.MetafieldsSetRoot root = response.getBody();
+            ShopifyGraphQLResponses.MetafieldsSetRoot root = graphQLClient.execute(
+                    shop, accessToken, mutation, ShopifyGraphQLResponses.MetafieldsSetRoot.class);
 
             if (root != null && root.getData() != null && root.getData().getMetafieldsSet() != null) {
                 List<ShopifyGraphQLResponses.UserError> userErrors = root.getData().getMetafieldsSet().getUserErrors();
@@ -330,17 +316,7 @@ public class ProductService {
     }
 
     private <T> T executeGraphQLInternal(String shop, String accessToken, String query, Class<T> responseType) {
-        String url = String.format(shopifyConfig.getGraphqlUrl(), shop, apiVersion);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Shopify-Access-Token", accessToken);
-
-        GraphQLRequest requestBody = new GraphQLRequest(query);
-        HttpEntity<GraphQLRequest> entity = new HttpEntity<>(requestBody, headers);
-
-        ResponseEntity<T> response = restTemplate.exchange(url, HttpMethod.POST, entity, responseType);
-        return response.getBody();
+        return graphQLClient.execute(shop, accessToken, query, responseType);
     }
 
     public void handleProductUpdate(String shop, String productId, String priceStr, String compareAtPriceStr) {
@@ -371,7 +347,6 @@ public class ProductService {
     }
 
     private boolean updateProductMetafield(String shop, String accessToken, String productId, double discountPercent) {
-        String url = String.format(shopifyConfig.getGraphqlUrl(), shop, apiVersion);
         String mutation = String.format("""
                 mutation {
                   metafieldsSet(metafields: [{
@@ -394,18 +369,10 @@ public class ProductService {
                 }
                 """, productId, discountPercent);
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Shopify-Access-Token", accessToken);
-
-        GraphQLRequest requestBody = new GraphQLRequest(mutation);
-        HttpEntity<GraphQLRequest> entity = new HttpEntity<>(requestBody, headers);
-
         try {
-            ResponseEntity<ShopifyGraphQLResponses.MetafieldsSetRoot> response = restTemplate.exchange(url,
-                    HttpMethod.POST, entity, ShopifyGraphQLResponses.MetafieldsSetRoot.class);
+            ShopifyGraphQLResponses.MetafieldsSetRoot root = graphQLClient.execute(
+                    shop, accessToken, mutation, ShopifyGraphQLResponses.MetafieldsSetRoot.class);
 
-            ShopifyGraphQLResponses.MetafieldsSetRoot root = response.getBody();
             if (root == null || root.getData() == null) {
                 log.error("No data in response for product {}", productId);
                 return false;
@@ -426,8 +393,6 @@ public class ProductService {
     }
 
     private void ensureMetafieldDefinition(String shop, String accessToken) {
-        String url = String.format(shopifyConfig.getGraphqlUrl(), shop, apiVersion);
-
         String mutation = """
                 mutation {
                   metafieldDefinitionCreate(definition: {
@@ -452,18 +417,10 @@ public class ProductService {
                 }
                 """;
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Shopify-Access-Token", accessToken);
-
-        GraphQLRequest requestBody = new GraphQLRequest(mutation);
-        HttpEntity<GraphQLRequest> entity = new HttpEntity<>(requestBody, headers);
-
         try {
-            ResponseEntity<ShopifyGraphQLResponses.MetafieldDefinitionCreateRoot> response = restTemplate.exchange(url,
-                    HttpMethod.POST, entity, ShopifyGraphQLResponses.MetafieldDefinitionCreateRoot.class);
+            ShopifyGraphQLResponses.MetafieldDefinitionCreateRoot root = graphQLClient.execute(
+                    shop, accessToken, mutation, ShopifyGraphQLResponses.MetafieldDefinitionCreateRoot.class);
 
-            ShopifyGraphQLResponses.MetafieldDefinitionCreateRoot root = response.getBody();
             if (root == null || root.getData() == null || root.getData().getMetafieldDefinitionCreate() == null)
                 return;
 

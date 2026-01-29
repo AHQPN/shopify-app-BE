@@ -13,7 +13,6 @@ import org.chatapp.customshopify.exception.ErrorCode;
 import org.chatapp.customshopify.repository.ProductReviewRepository;
 import org.chatapp.customshopify.specification.ProductReviewSpecification;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,24 +29,21 @@ public class ReviewService {
 
     @Transactional
     public ProductReview createReview(String shop, CreateReviewRequest request) {
-        log.info("Creating review for product {} in shop {}", request.getProductId(), shop);
+        log.info("Creating/Updating review for product {} in shop {}", request.getProductId(), shop);
 
-        if (request.getReplyTo() == null) {
-            if (request.getRating() == null || request.getRating() < 1 || request.getRating() > 5) {
-                throw new AppException(ErrorCode.INVALID_REQUEST);
-            }
-        } else {
-            // Handle Reply Logic: Update Parent Counters
+        if (request.getReplyTo() != null) {
+            // Handle Direct Reply: Update parent review's reply field
             ProductReview parent = reviewRepository.getProductReviewById(request.getReplyTo())
                     .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
 
-            int currentReplyNum = parent.getReplyNum();
-            parent.setReplyNum(currentReplyNum + 1);
+            parent.setReply(request.getComment());
+            // Optionally reset status or mark as read? For now just save reply.
+            return reviewRepository.save(parent);
+        }
 
-            int currentUnread = parent.getUnreadReplyCount();
-            parent.setUnreadReplyCount(currentUnread + 1);
-
-            reviewRepository.save(parent);
+        // New Review submission
+        if (request.getRating() == null || request.getRating() < 1 || request.getRating() > 5) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
         }
 
         ProductReview review = ProductReview.builder()
@@ -56,10 +52,9 @@ public class ReviewService {
                 .productName(request.getProductName())
                 .customerId(request.getCustomerId())
                 .customerName(request.getCustomerName())
-                .avatarUrl(request.getAvatarUrl())
                 .comment(request.getComment())
                 .rating(request.getRating())
-                .replyTo(request.getReplyTo())
+                .isAnonymous(request.getIsAnonymous() != null ? request.getIsAnonymous() : false)
                 .status(ReviewStatus.HIDDEN) // Default HIDDEN
                 .build();
 
@@ -79,7 +74,7 @@ public class ReviewService {
     }
 
     public Page<ProductReview> getReviews(String shop, String productId, Integer rating, Boolean status, Boolean isRead,
-            String productName, Pageable pageable) {
+            String productName, int page, int size, boolean isAdmin) {
         // NOTE: 'status' param here is from Controller (true=PUBLISHED,
         // false=HIDDEN/ARCHIVED?).
         // But Controller logic is:
@@ -87,47 +82,16 @@ public class ReviewService {
         // Storefront (No Auth): pass status=true (only published).
 
         List<ReviewStatus> statusList = new ArrayList<>();
-        Boolean onlyParents = null;
-
-        // If status is TRUE -> PUBLISHED
-        // If status is FALSE -> HIDDEN? (Usually explicit filter)
-        // If status is NULL -> "Admin Query" behavior defined by user requirements:
-        // "Admin: parent reviews, no reply_to, status != ARCHIVED"
-
-        // However, the Controller calls this.
-        // Let's adapt based on the 'status' boolean flag semantics which usually meant
-        // "Published?"
-
         if (Boolean.TRUE.equals(status)) {
             // Storefront behavior: Only PUBLISHED
             statusList.add(ReviewStatus.PUBLISHED);
-            // User Requirement: "storefront will load review with status publish"
-            // usually storefront lists parents
-            // but let's leave onlyParents as NULL if not strictly required,
-            // OR if user said "load review" (implies main list), usually parents.
-            // But let's checking the requirement: "query get review on admin, only get
-            // parent reviews... status different from archived"
-            // "storefront will load review with status publish" (didn't prioritize replyTo,
-            // but implied main list).
-            // Let's assume Storefront also wants parents for the main list, but let's keep
-            // it safe.
-            // Actually, if we filter by PUBLISHED, replies might be published too.
         } else {
-            // Admin behavior (or explicit status=false filter?)
-            // User Requirement: "Admin: only get parent reviews, no reply_to, status !=
-            // ARCHIVED"
-            // Logic: If status is NULL (getting all for admin table), apply the
-            // exclusionary logic.
+            // Admin behavior
             if (status == null) {
                 statusList.add(ReviewStatus.PUBLISHED);
                 statusList.add(ReviewStatus.HIDDEN); // != ARCHIVED
-                onlyParents = true; // "only get parent reviews"
             } else {
-                // Explicit status=false filter in Admin UI?
-                // If Admin selects "Hidden", they want HIDDEN.
-                statusList.add(org.chatapp.customshopify.enums.ReviewStatus.HIDDEN);
-                // Should we enforce parents only here too? Probably yes for the main table.
-                onlyParents = true;
+                statusList.add(ReviewStatus.HIDDEN);
             }
         }
         if (productName != null && productName.isBlank()) {
@@ -139,17 +103,13 @@ public class ReviewService {
                 productId,
                 rating,
                 statusList,
-                onlyParents,
                 isRead,
                 productName);
 
-        return reviewRepository.findAll(spec, pageable);
-
+        return reviewRepository.findAllSorted(spec, page, size, isAdmin);
     }
 
     public ReviewStatsResponse getReviewStats(String shop, String productId, Boolean status) {
-        // Stats should follow similar logic?
-        // Usually stats are for "All non-archived" or "Published" depending on context.
 
         List<ReviewStatus> statusList = new ArrayList<>();
         // Stats follow specific admin/storefront logic:
@@ -182,41 +142,31 @@ public class ReviewService {
                 .build();
     }
 
+    public ProductReview getReview(Long id) {
+        return reviewRepository.getProductReviewById(id)
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
+    }
+
     @Transactional
     public void updateReviewStatus(UpdateReviewStatusRequest request) {
         ProductReview productReview = reviewRepository.getProductReviewById(request.getId())
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
         // Status in Request is now ReviewStatus Enum
         ReviewStatus status = ReviewStatus.valueOf(request.getStatus().name());
-        productReview.setStatus(status);
-        if (productReview.getReplyNum() > 0)
-            reviewRepository.updateReply(productReview.getId(), status);
+        if (productReview.getStatus() != null)
+            productReview.setStatus(status);
+
         productReview.setHideReason(request.getHideReason());
         reviewRepository.save(productReview);
     }
 
-    public List<ProductReview> getRepliesByReview(Long id, Boolean isRead) {
-        if (isRead == null) {
-            return reviewRepository.getProductReviewByReplyTo(id);
-        }
-        if (isRead) {
-            return reviewRepository.getProductReviewByReplyToAndIsReadTrue(id);
-        }
-        return reviewRepository.getProductReviewByReplyToAndIsReadFalse(id);
+    @Transactional
+    public void setReadReview(List<Long> reviews, Boolean isRead) {
+        reviewRepository.updateReadStatus(reviews, isRead);
     }
 
     @Transactional
-    public void setReadReview(List<Long> reviews) {
-        reviewRepository.updateReadStatus(reviews);
-
-    }
-
-    @Transactional
-    public void updateUnreadReplyCount(List<Long> reviews) {
-        reviewRepository.updateReadStatus(reviews);
-        Long productReviewId = reviewRepository.getProductReviewById(reviews.get(0)).orElseThrow().getReplyTo();
-        ProductReview review = reviewRepository.getProductReviewById(productReviewId).orElseThrow();
-        review.setUnreadReplyCount(review.getUnreadReplyCount() - reviews.size());
-        reviewRepository.save(review);
+    public void togglePin(Long id, Boolean isPinned) {
+        reviewRepository.updatePinnedStatus(id, isPinned);
     }
 }

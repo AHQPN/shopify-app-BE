@@ -9,17 +9,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-
 public class ProductReviewSpecification {
     public static Specification<ProductReview> filter(
             String shop,
             String productId,
             Integer rating,
             Collection<ReviewStatus> statuses,
-            Boolean onlyParents,
             Boolean isRead,
-            String productName
-    ) {
+            String productName) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
@@ -38,10 +35,6 @@ public class ProductReviewSpecification {
                 predicates.add(root.get("status").in(statuses));
             }
 
-            if (Boolean.TRUE.equals(onlyParents)) {
-                predicates.add(cb.isNull(root.get("replyTo")));
-            }
-
             if (isRead != null) {
                 predicates.add(cb.equal(root.get("isRead"), isRead));
             }
@@ -50,9 +43,7 @@ public class ProductReviewSpecification {
                 predicates.add(
                         cb.like(
                                 cb.lower(root.get("productName")),
-                                "%" + productName.toLowerCase() + "%"
-                        )
-                );
+                                "%" + productName.toLowerCase() + "%"));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

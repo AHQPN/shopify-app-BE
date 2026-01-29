@@ -2,6 +2,7 @@ package org.chatapp.customshopify.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.chatapp.customshopify.client.ShopifyRestClient;
 import org.chatapp.customshopify.config.ShopifyConfig;
 import org.chatapp.customshopify.dto.request.CodeExchangeRequest;
 import org.chatapp.customshopify.dto.request.TokenExchangeRequest;
@@ -12,13 +13,8 @@ import org.chatapp.customshopify.entity.ShopifySession;
 import org.chatapp.customshopify.exception.AppException;
 import org.chatapp.customshopify.exception.ErrorCode;
 import org.chatapp.customshopify.repository.ShopifySessionRepository;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -31,10 +27,10 @@ import java.util.*;
 @Slf4j
 @RequiredArgsConstructor
 public class ShopifyAuthService {
-    
+
     private final ShopifyConfig shopifyConfig;
     private final ShopifySessionRepository sessionRepository;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final ShopifyRestClient shopifyRestClient;
 
     public AuthInitResponse initiateAuth(String shop) {
         // Validate shop domain
@@ -45,7 +41,7 @@ public class ShopifyAuthService {
 
         String redirectUri = "http://localhost:8080/api/auth/callback";
         String authUrl = generateAuthUrl(shop, redirectUri);
-        
+
         return AuthInitResponse.builder()
                 .authUrl(authUrl)
                 .shop(shop)
@@ -62,7 +58,6 @@ public class ShopifyAuthService {
                 .orElseThrow(() -> new AppException(ErrorCode.SHOP_NOT_FOUND));
     }
 
-    
     /**
      * Generate OAuth authorization URL
      */
@@ -70,12 +65,12 @@ public class ShopifyAuthService {
         String state = generateState();
         String scopes = shopifyConfig.getScopes();
         String apiKey = shopifyConfig.getApiKey();
-        
+
         // Use configured endpoint
         return String.format(shopifyConfig.getOauthAuthorizeUrl(), shop) +
-               String.format("?client_id=%s&scope=%s&redirect_uri=%s&state=%s", apiKey, scopes, redirectUri, state);
+                String.format("?client_id=%s&scope=%s&redirect_uri=%s&state=%s", apiKey, scopes, redirectUri, state);
     }
-    
+
     /**
      * Exchange authorization code for access token
      */
@@ -85,14 +80,6 @@ public class ShopifyAuthService {
         log.info("Code (first 10): {}...", code.substring(0, Math.min(10, code.length())));
 
         try {
-            // Call Shopify API to exchange code for access token
-            String url = String.format(shopifyConfig.getOauthTokenUrl(), shop);
-            log.info("Calling Shopify API: {}", url);
-
-            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
-
             CodeExchangeRequest requestBody = CodeExchangeRequest.builder()
                     .clientId(shopifyConfig.getApiKey())
                     .clientSecret(shopifyConfig.getApiSecret())
@@ -102,21 +89,8 @@ public class ShopifyAuthService {
             log.info("Request body: client_id={}, code={}...",
                     shopifyConfig.getApiKey(), code.substring(0, Math.min(10, code.length())));
 
-            org.springframework.http.HttpEntity<CodeExchangeRequest> request =
-                    new org.springframework.http.HttpEntity<>(requestBody, headers);
+            TokenExchangeResponse responseBody = shopifyRestClient.exchangeCode(shop, requestBody);
 
-            log.info("Sending POST request to Shopify...");
-            log.info("Sending POST request to Shopify...");
-            org.springframework.http.ResponseEntity<TokenExchangeResponse> response =
-                    restTemplate.postForEntity(url, request, TokenExchangeResponse.class);
-
-            log.info("Response status: {}", response.getStatusCode());
-
-            TokenExchangeResponse responseBody = response.getBody();
-            if (responseBody == null) {
-                throw new AppException(ErrorCode.SHOPIFY_API_ERROR);
-            }
-            
             String accessToken = responseBody.getAccessToken();
             String scope = responseBody.getScope();
 
@@ -165,7 +139,7 @@ public class ShopifyAuthService {
             throw new AppException(ErrorCode.SHOPIFY_API_ERROR);
         }
     }
-    
+
     /**
      * Exchange Session Token (JWT) for Offline Access Token using Token Exchange
      * This is the modern approach (App Bridge v4) - no redirect required!
@@ -173,13 +147,8 @@ public class ShopifyAuthService {
     public ShopifySession exchangeSessionTokenForAccessToken(String shop, String sessionToken) {
         log.info("========== TOKEN EXCHANGE (Session -> Access) ==========");
         log.info("Shop: {}", shop);
-        
+
         try {
-            String url = String.format(shopifyConfig.getOauthTokenUrl(), shop);
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            
             TokenExchangeRequest requestBody = TokenExchangeRequest.builder()
                     .clientId(shopifyConfig.getApiKey())
                     .clientSecret(shopifyConfig.getApiSecret())
@@ -188,29 +157,20 @@ public class ShopifyAuthService {
                     .subjectTokenType("urn:ietf:params:oauth:token-type:id_token")
                     .requestedTokenType("urn:shopify:params:oauth:token-type:offline-access-token")
                     .build();
-            
-            HttpEntity<TokenExchangeRequest> request = new HttpEntity<>(requestBody, headers);
-            
+
             log.info("Calling Token Exchange API...");
-            ResponseEntity<TokenExchangeResponse> response = restTemplate.postForEntity(url, request, TokenExchangeResponse.class);
-            
-            log.info("Response status: {}", response.getStatusCode());
-            
-            TokenExchangeResponse responseBody = response.getBody();
-            if (responseBody == null) {
-                throw new AppException(ErrorCode.TOKEN_EXCHANGE_FAILED);
-            }
-            
+            TokenExchangeResponse responseBody = shopifyRestClient.exchangeSessionToken(shop, requestBody);
+
             String accessToken = responseBody.getAccessToken();
             String scope = responseBody.getScope();
-            
+
             log.info("✅ Token Exchange successful!");
             log.info("Access Token (first 15): {}...", accessToken.substring(0, Math.min(15, accessToken.length())));
-            
+
             // Save to database
             var existingSessions = sessionRepository.findByShop(shop);
             ShopifySession session;
-            
+
             if (!existingSessions.isEmpty()) {
                 session = existingSessions.get(0);
                 session.setAccessToken(accessToken);
@@ -227,13 +187,13 @@ public class ShopifyAuthService {
                 session.setCreatedAt(java.time.LocalDateTime.now());
                 session.setUpdatedAt(java.time.LocalDateTime.now());
             }
-            
+
             ShopifySession savedSession = sessionRepository.save(session);
             log.info("✅ Session saved! ID: {}", savedSession.getId());
             log.info("========== TOKEN EXCHANGE COMPLETED ==========");
-            
+
             return savedSession;
-            
+
         } catch (AppException e) {
             throw e;
         } catch (Exception e) {
@@ -241,7 +201,7 @@ public class ShopifyAuthService {
             throw new AppException(ErrorCode.TOKEN_EXCHANGE_FAILED);
         }
     }
-    
+
     /**
      * Validate HMAC signature from Shopify
      */
@@ -251,7 +211,7 @@ public class ShopifyAuthService {
             Map<String, String> filteredParams = new TreeMap<>(params);
             filteredParams.remove("hmac");
             filteredParams.remove("signature");
-            
+
             // Build query string
             StringBuilder queryString = new StringBuilder();
             filteredParams.forEach((key, value) -> {
@@ -260,17 +220,17 @@ public class ShopifyAuthService {
                 }
                 queryString.append(key).append("=").append(value);
             });
-            
+
             // Calculate HMAC
             String calculatedHmac = calculateHmac(queryString.toString());
             return calculatedHmac.equals(hmac);
-            
+
         } catch (Exception e) {
             log.error("Error validating HMAC", e);
             return false;
         }
     }
-    
+
     /**
      * Verify webhook signature
      */
@@ -283,14 +243,14 @@ public class ShopifyAuthService {
             return false;
         }
     }
-    
+
     /**
      * Get session by shop
      */
     public Optional<ShopifySession> getSession(String shop) {
         return sessionRepository.findByShopAndIsOnline(shop, false);
     }
-    
+
     /**
      * Delete sessions for a shop
      */
@@ -298,35 +258,33 @@ public class ShopifyAuthService {
     public void deleteSessionsByShop(String shop) {
         sessionRepository.deleteByShop(shop);
     }
-    
+
     // Helper methods
-    
+
     private String generateState() {
         return UUID.randomUUID().toString();
     }
-    
+
     private String calculateHmac(String data) throws NoSuchAlgorithmException, InvalidKeyException {
         Mac mac = Mac.getInstance("HmacSHA256");
         SecretKeySpec secretKey = new SecretKeySpec(
-            shopifyConfig.getApiSecret().getBytes(StandardCharsets.UTF_8),
-            "HmacSHA256"
-        );
+                shopifyConfig.getApiSecret().getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256");
         mac.init(secretKey);
         byte[] hmacBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
         return bytesToHex(hmacBytes);
     }
-    
+
     private String calculateHmacBase64(String data) throws NoSuchAlgorithmException, InvalidKeyException {
         Mac mac = Mac.getInstance("HmacSHA256");
         SecretKeySpec secretKey = new SecretKeySpec(
-            shopifyConfig.getApiSecret().getBytes(StandardCharsets.UTF_8),
-            "HmacSHA256"
-        );
+                shopifyConfig.getApiSecret().getBytes(StandardCharsets.UTF_8),
+                "HmacSHA256");
         mac.init(secretKey);
         byte[] hmacBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
         return Base64.getEncoder().encodeToString(hmacBytes);
     }
-    
+
     private String bytesToHex(byte[] bytes) {
         StringBuilder result = new StringBuilder();
         for (byte b : bytes) {

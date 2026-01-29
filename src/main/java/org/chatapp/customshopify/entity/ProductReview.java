@@ -42,9 +42,6 @@ public class ProductReview {
     @Column(name = "customer_name")
     private String customerName;
 
-    @Column(name = "avatar_url")
-    private String avatarUrl;
-
     @Column(columnDefinition = "TEXT")
     private String comment;
 
@@ -58,8 +55,16 @@ public class ProductReview {
     @Enumerated(EnumType.STRING)
     private HideReason hideReason;
 
-    @Column(name = "reply_to")
-    private Long replyTo;
+    @Column(columnDefinition = "TEXT")
+    private String reply;
+
+    @Builder.Default
+    @Column(name = "is_pinned")
+    private Boolean isPinned = false;
+
+    @Builder.Default
+    @Column(name = "is_anonymous")
+    private Boolean isAnonymous = false;
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReviewMedia> media;
@@ -68,13 +73,8 @@ public class ProductReview {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "reply_num")
-    private Integer replyNum;
-
+    @Builder.Default
     @Column(name = "is_read")
-    private Boolean isRead;
-
-    @Column(name = "unread_reply_count")
-    private Integer unreadReplyCount;
+    private Boolean isRead = false;
 
 }

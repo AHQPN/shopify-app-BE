@@ -13,8 +13,6 @@ import org.chatapp.customshopify.exception.ErrorCode;
 import org.chatapp.customshopify.service.ReviewService;
 import org.chatapp.customshopify.enums.HideReason;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -53,19 +51,11 @@ public class ReviewController {
             @RequestParam(defaultValue = "10") int size) {
 
         String shop = getShop(httpServletRequest);
-
-        // Determine if we should enforce Published status
-        // Admin App uses Bearer token. Storefront uses shop param only.
         String authHeader = httpServletRequest.getHeader("Authorization");
-        Boolean finalStatus = status;
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            finalStatus = true; // Storefront only sees published
-        }
+        boolean isAdmin = authHeader != null && authHeader.startsWith("Bearer ");
 
-        Sort sort = Sort.by("createdAt").descending();
-        Page<ProductReview> reviews = reviewService.getReviews(shop, productId, rating, finalStatus, isRead,
-                productName,
-                PageRequest.of(page, size, sort));
+        Page<ProductReview> reviews = reviewService.getReviews(shop, productId, rating, status, isRead,
+                productName, page, size, isAdmin);
 
         return ResponseEntity.ok(ApiResponse.<Page<ProductReview>>builder()
                 .data(reviews)
@@ -108,24 +98,34 @@ public class ReviewController {
         reviewService.updateReviewStatus(request);
         return ResponseEntity.ok().body(ApiResponse.<Void>builder().message("Update successfully").build());
     }
-    @PutMapping("/read-reply")
-    public ResponseEntity<ApiResponse> updateUnreadReplyCount(@RequestBody List<Long> reviews) {
-        reviewService.updateUnreadReplyCount(reviews);
-        return ResponseEntity.ok().body(ApiResponse.<Void>builder().message("Update successfully").build());
-    }
-    @GetMapping("/{id}/replies")
-    public ResponseEntity<?> getRepliesByReview(@PathVariable Long id, @RequestParam(required = false) Boolean isRead) {
-        List<ProductReview> reviews = reviewService.getRepliesByReview(id, isRead);
-        return ResponseEntity.ok().body(ApiResponse.builder().data(reviews).build());
+
+
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProductReview>> getReview(@PathVariable Long id) {
+        ProductReview review = reviewService.getReview(id);
+        return ResponseEntity.ok().body(ApiResponse.<ProductReview>builder().data(review).build());
     }
 
     @PutMapping("/read")
-    public ResponseEntity<?> setReadReview(@RequestBody List<Long> reviews) {
-        reviewService.setReadReview(reviews);
-        return ResponseEntity.ok().body(ApiResponse.builder().message("Set read successfully"));
+    public ResponseEntity<?> setReadReview(
+            @RequestBody List<Long> reviews,
+            @RequestParam(required = false, defaultValue = "true") Boolean isRead) {
+        reviewService.setReadReview(reviews, isRead);
+        return ResponseEntity.ok().body(ApiResponse.builder().message("Status updated successfully").build());
     }
 
+    @PutMapping("/{id}/pin")
+    public ResponseEntity<?> pinReview(@PathVariable Long id) {
+        reviewService.togglePin(id, true);
+        return ResponseEntity.ok().body(ApiResponse.builder().message("Pinned successfully").build());
+    }
 
+    @PutMapping("/{id}/unpin")
+    public ResponseEntity<?> unpinReview(@PathVariable Long id) {
+        reviewService.togglePin(id, false);
+        return ResponseEntity.ok().body(ApiResponse.builder().message("Unpinned successfully").build());
+    }
 
     private String getShop(HttpServletRequest request) {
         String shop = (String) request.getAttribute("shop");

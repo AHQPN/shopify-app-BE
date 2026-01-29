@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0
+      author: admin
+      changes:
+        - addColumn:
+            tableName: product_reviews
+            columns:
+              - column:
+                  name: is_pinned
+                  type: boolean
+              - column:
+                  name: is_anonymous
+                  type: boolean
+        - dropColumn:
+            tableName: product_reviews
+            columns:
+              - column:
+                  name: reply_num
+              - column:
+                  name: unread_reply_count
