@@ -1,5 +1,6 @@
 package org.chatapp.customshopify.specification;
 
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.chatapp.customshopify.entity.ProductReview;
 import org.chatapp.customshopify.enums.ReviewStatus;
@@ -16,11 +17,11 @@ public class ProductReviewSpecification {
             Integer rating,
             Collection<ReviewStatus> statuses,
             Boolean isRead,
-            String productName) {
+            String productName,
+            Boolean showHiddenMedia) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // bắt buộc
             predicates.add(cb.equal(root.get("shop"), shop));
 
             if (productId != null) {
@@ -36,7 +37,16 @@ public class ProductReviewSpecification {
             }
 
             if (isRead != null) {
-                predicates.add(cb.equal(root.get("isRead"), isRead));
+                if (isRead) {
+                    // Trường hợp read = true: (Status là PUBLISHED) HOẶC (hideReason là IS NOT
+                    // NULL)
+                    predicates.add(cb.or(
+                            cb.equal(root.get("status"), ReviewStatus.PUBLISHED),
+                            cb.isNotNull(root.get("hideReason"))));
+                } else {
+                    predicates.add(cb.notEqual(root.get("status"), ReviewStatus.PUBLISHED));
+                    predicates.add(cb.isNull(root.get("hideReason")));
+                }
             }
 
             if (productName != null && !productName.isBlank()) {
@@ -44,6 +54,18 @@ public class ProductReviewSpecification {
                         cb.like(
                                 cb.lower(root.get("productName")),
                                 "%" + productName.toLowerCase() + "%"));
+            }
+
+            if (Boolean.FALSE.equals(showHiddenMedia)) {
+                // If this is a data fetch query (not a count query), we use FETCH to avoid N+1.
+                // We no longer add a predicate here to filter the review entity itself based on
+                // media,
+                // because that would hide reviews where ALL media are hidden.
+                // Media filtering will be handled in the Service layer.
+                if (query.getResultType() != Long.class && query.getResultType() != long.class) {
+                    root.fetch("media", JoinType.LEFT);
+                }
+                query.distinct(true);
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

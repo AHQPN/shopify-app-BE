@@ -2,6 +2,7 @@ package org.chatapp.customshopify.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.chatapp.customshopify.client.CaptchaClient;
 import org.chatapp.customshopify.dto.request.CreateReviewRequest;
 import org.chatapp.customshopify.dto.request.UpdateReviewStatusRequest;
 import org.chatapp.customshopify.dto.response.ReviewStatsResponse;
@@ -11,6 +12,7 @@ import org.chatapp.customshopify.enums.ReviewStatus;
 import org.chatapp.customshopify.exception.AppException;
 import org.chatapp.customshopify.exception.ErrorCode;
 import org.chatapp.customshopify.repository.ProductReviewRepository;
+import org.chatapp.customshopify.repository.ReviewMediaRepository;
 import org.chatapp.customshopify.specification.ProductReviewSpecification;
 import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
@@ -24,20 +26,27 @@ import java.util.List;
 @RequiredArgsConstructor
 @Slf4j
 public class ReviewService {
-
+    private final ReviewMediaRepository reviewMediaRepository;
     private final ProductReviewRepository reviewRepository;
+    private final CaptchaClient captchaClient;
 
     @Transactional
     public ProductReview createReview(String shop, CreateReviewRequest request) {
         log.info("Creating/Updating review for product {} in shop {}", request.getProductId(), shop);
 
+        // Verify reCAPTCHA
+        if (!captchaClient.verify(request.getCaptchaToken())) {
+            throw new AppException(ErrorCode.INVALID_REQUEST);
+        }
+
         if (request.getReplyTo() != null) {
+
             // Handle Direct Reply: Update parent review's reply field
             ProductReview parent = reviewRepository.getProductReviewById(request.getReplyTo())
                     .orElseThrow(() -> new AppException(ErrorCode.INVALID_REQUEST));
 
             parent.setReply(request.getComment());
-            // Optionally reset status or mark as read? For now just save reply.
+
             return reviewRepository.save(parent);
         }
 
@@ -55,7 +64,7 @@ public class ReviewService {
                 .comment(request.getComment())
                 .rating(request.getRating())
                 .isAnonymous(request.getIsAnonymous() != null ? request.getIsAnonymous() : false)
-                .status(ReviewStatus.HIDDEN) // Default HIDDEN
+                .status(ReviewStatus.HIDDEN)
                 .build();
 
         List<ReviewMedia> mediaList = new ArrayList<>();
@@ -75,11 +84,6 @@ public class ReviewService {
 
     public Page<ProductReview> getReviews(String shop, String productId, Integer rating, Boolean status, Boolean isRead,
             String productName, int page, int size, boolean isAdmin) {
-        // NOTE: 'status' param here is from Controller (true=PUBLISHED,
-        // false=HIDDEN/ARCHIVED?).
-        // But Controller logic is:
-        // Admin (Auth Header): pass status=null (get all) or true/false filter.
-        // Storefront (No Auth): pass status=true (only published).
 
         List<ReviewStatus> statusList = new ArrayList<>();
         if (Boolean.TRUE.equals(status)) {
@@ -104,9 +108,28 @@ public class ReviewService {
                 rating,
                 statusList,
                 isRead,
-                productName);
+                productName,
+                isAdmin);
 
-        return reviewRepository.findAllSorted(spec, page, size, isAdmin);
+        Page<ProductReview> reviewPage = reviewRepository.findAllSorted(spec, page, size, isAdmin);
+        if (Boolean.TRUE.equals(status))
+            reviewPage.forEach(review -> {
+                if (ReviewStatus.PUBLISHED.equals(review.getStatus())
+                        && Boolean.TRUE.equals(review.getIsAnonymous())) {
+
+                    review.setCustomerName(transformToAnonymous(review.getCustomerName()));
+
+                }
+
+                // Filter hidden media for storefront
+                if (review.getMedia() != null) {
+                    review.setMedia(review.getMedia().stream()
+                            .filter(m -> !Boolean.TRUE.equals(m.getIsHidden()))
+                            .collect(java.util.stream.Collectors.toList()));
+                }
+            });
+        return reviewPage;
+
     }
 
     public ReviewStatsResponse getReviewStats(String shop, String productId, Boolean status) {
@@ -138,7 +161,7 @@ public class ReviewService {
                 .threeStars(p.getThreeStars())
                 .fourStars(p.getFourStars())
                 .fiveStars(p.getFiveStars())
-                .unReadReview(p.getUnReadReview())
+                .unModeratedCount(p.getUnModeratedCount())
                 .build();
     }
 
@@ -161,12 +184,30 @@ public class ReviewService {
     }
 
     @Transactional
-    public void setReadReview(List<Long> reviews, Boolean isRead) {
-        reviewRepository.updateReadStatus(reviews, isRead);
-    }
-
-    @Transactional
     public void togglePin(Long id, Boolean isPinned) {
         reviewRepository.updatePinnedStatus(id, isPinned);
+    }
+
+    private String transformToAnonymous(String customerName) {
+        String[] parts = customerName.trim().split("\\s+");
+        String name = parts[parts.length - 1];
+
+        if (name.length() < 2) {
+            return "Anonymous";
+        }
+        int maskName = name.length() / 2;
+        int index = (name.length() - maskName) / 2;
+
+        StringBuilder sb = new StringBuilder(name);
+        for (int i = index; i <= index + maskName; i++)
+            sb.setCharAt(i, '*');
+
+        return sb.toString();
+
+    }
+    @Transactional
+    public void setMediaStatus(long id,boolean status) {
+
+        reviewMediaRepository.updateStatus(id,status);
     }
 }

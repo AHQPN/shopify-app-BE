@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260127150000-1
+      author: antigravity
+      changes:
+        - addColumn:
+            tableName: app_settings
+            columns:
+              - column:
+                  name: is_auto_publish
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false

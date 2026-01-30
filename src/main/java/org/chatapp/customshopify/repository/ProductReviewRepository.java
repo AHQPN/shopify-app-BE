@@ -59,7 +59,7 @@ public interface ProductReviewRepository
                         "SUM(CASE WHEN r.rating = 3 THEN 1 ELSE 0 END), " +
                         "SUM(CASE WHEN r.rating = 4 THEN 1 ELSE 0 END), " +
                         "SUM(CASE WHEN r.rating = 5 THEN 1 ELSE 0 END), " +
-                        "SUM(CASE WHEN r.isRead = false OR r.isRead IS NULL THEN 1 ELSE 0 END)" +
+                        "SUM(CASE WHEN r.hideReason IS NULL AND r.status != org.chatapp.customshopify.enums.ReviewStatus.PUBLISHED THEN 1 ELSE 0 END)" +
                         ") " +
                         "FROM ProductReview r " +
                         "WHERE r.shop = :shop " +
@@ -80,10 +80,6 @@ public interface ProductReviewRepository
         Optional<ProductReview> getProductReviewById(Long id);
 
         List<ProductReview> findTop10ByShopOrderByCreatedAtDesc(String shop);
-
-        @Modifying
-        @Query("UPDATE ProductReview r SET r.isRead = :isRead WHERE r.id IN :ids")
-        void updateReadStatus(@Param("ids") List<Long> ids, @Param("isRead") Boolean isRead);
 
         @Modifying
         @Query("UPDATE ProductReview r SET r.isPinned = :isPinned WHERE r.id = :id")

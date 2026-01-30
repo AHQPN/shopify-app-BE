@@ -59,10 +59,6 @@ public class ProductReview {
     private String reply;
 
     @Builder.Default
-    @Column(name = "is_pinned")
-    private Boolean isPinned = false;
-
-    @Builder.Default
     @Column(name = "is_anonymous")
     private Boolean isAnonymous = false;
 
@@ -72,9 +68,8 @@ public class ProductReview {
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
-
     @Builder.Default
-    @Column(name = "is_read")
-    private Boolean isRead = false;
+    @Column(name = "is_pinned")
+    private Boolean isPinned = false;
 
 }

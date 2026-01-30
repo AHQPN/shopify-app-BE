@@ -36,6 +36,10 @@ public class ReviewMedia {
     @Column(name = "file_size")
     private Long fileSize;
 
+    @Builder.Default
+    @Column(name = "is_hidden")
+    private Boolean isHidden = false;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

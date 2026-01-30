@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260129141500-add-reply-drop-obsolete
+      author: antigravity
+      changes:
+        - addColumn:
+            tableName: product_reviews
+            columns:
+              - column:
+                  name: reply
+                  type: text
+        - dropColumn:
+            tableName: product_reviews
+            columnName: reply_to
+        - dropColumn:
+            tableName: product_reviews
+            columnName: avatar_url

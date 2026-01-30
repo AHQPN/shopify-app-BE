@@ -107,7 +107,6 @@ public class ShopifyGraphQLClient {
                     .bodyToMono(String.class)
                     .block();
 
-            // Basic check for errors in response
             if (response != null && response.contains("\"errors\"")) {
                 log.warn("GraphQL mutation returned errors for shop {}: {}", shop, response);
                 return false;

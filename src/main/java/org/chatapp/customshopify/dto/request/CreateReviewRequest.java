@@ -14,6 +14,7 @@ public class CreateReviewRequest {
     private Integer rating;
     private Long replyTo;
     private Boolean isAnonymous;
+    private String captchaToken;
     private List<MediaItem> media;
 
     @Data

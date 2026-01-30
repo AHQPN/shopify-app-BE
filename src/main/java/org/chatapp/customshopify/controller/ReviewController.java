@@ -62,6 +62,13 @@ public class ReviewController {
                 .build());
     }
 
+    @PutMapping("/media/{id}/{status}")
+    public ResponseEntity<ApiResponse> setStatusMedia(@PathVariable("id") Long id,
+            @PathVariable("status") boolean status) {
+        reviewService.setMediaStatus(id, status);
+        return ResponseEntity.ok().body(ApiResponse.builder().message("Update Successfully").build());
+    }
+
     @GetMapping("/stats")
     public ResponseEntity<ApiResponse<ReviewStatsResponse>> getStats(
             HttpServletRequest httpServletRequest,
@@ -99,20 +106,10 @@ public class ReviewController {
         return ResponseEntity.ok().body(ApiResponse.<Void>builder().message("Update successfully").build());
     }
 
-
-
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ProductReview>> getReview(@PathVariable Long id) {
         ProductReview review = reviewService.getReview(id);
         return ResponseEntity.ok().body(ApiResponse.<ProductReview>builder().data(review).build());
-    }
-
-    @PutMapping("/read")
-    public ResponseEntity<?> setReadReview(
-            @RequestBody List<Long> reviews,
-            @RequestParam(required = false, defaultValue = "true") Boolean isRead) {
-        reviewService.setReadReview(reviews, isRead);
-        return ResponseEntity.ok().body(ApiResponse.builder().message("Status updated successfully").build());
     }
 
     @PutMapping("/{id}/pin")

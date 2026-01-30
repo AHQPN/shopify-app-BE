@@ -11,3 +11,5 @@ databaseChangeLog:
       file: db/changelog/changes/20260129130600-add-column-pinned-anonymous.yaml
   - include:
       file: db/changelog/changes/20260129141500-flatten-reply-structure.yaml
+  - include:
+      file: db/changelog/changes/20260130024300_alter_table_review_media_product_review.yaml

@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0
+      author: admin
+      changes:
+        - addColumn:
+            tableName: review_media
+            columns:
+              - column:
+                  name: is_hidden
+                  type: boolean
+        - dropColumn:
+            tableName: product_reviews
+            columns:
+              - column:
+                  name: is_read
+                  type: boolean

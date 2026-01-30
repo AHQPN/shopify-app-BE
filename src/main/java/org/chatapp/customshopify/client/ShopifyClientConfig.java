@@ -25,10 +25,7 @@ public class ShopifyClientConfig {
     private static final int RESPONSE_TIMEOUT_SECONDS = 30;
     private static final int MAX_MEMORY_SIZE = 16 * 1024 * 1024; // 16MB
 
-    /**
-     * Creates a WebClient bean configured for Shopify API calls.
-     * Includes response timeout and increased buffer size.
-     */
+
     @Bean
     public WebClient shopifyWebClient() {
         HttpClient httpClient = HttpClient.create()
@@ -47,16 +44,12 @@ public class ShopifyClientConfig {
                 .build();
     }
 
-    /**
-     * Builds the GraphQL endpoint URL for a specific shop.
-     */
+
     public String buildGraphQLUrl(String shop) {
         return String.format(shopifyConfig.getGraphqlUrl(), shop, shopifyConfig.getApiVersion());
     }
 
-    /**
-     * Builds the OAuth token endpoint URL for a specific shop.
-     */
+
     public String buildOAuthTokenUrl(String shop) {
         return String.format(shopifyConfig.getOauthTokenUrl(), shop);
     }

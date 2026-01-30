@@ -17,5 +17,5 @@ public class ReviewStatsResponse {
     private Long threeStars;
     private Long fourStars;
     private Long fiveStars;
-    private Long unReadReview;
+    private Long unModeratedCount;
 }
